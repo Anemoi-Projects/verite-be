@@ -521,6 +521,7 @@ const updateSectionAlt = async (req, res) => {
     });
   }
 };
+
 const createSubSection = async (req, res) => {
   try {
     const { sectionId } = req.query;
@@ -704,13 +705,11 @@ const dashboardStats = async (req, res) => {
 
 const createCategory = async (req, res) => {
   try {
-    const { lang } = req.query;
     const { name, slug } = req.body;
     if (!name) return sendErrorResponse(res, 400, "name is required");
     if (!slug) return sendErrorResponse(res, 400, "slug is required");
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
 
-    const category = await Categories.create({ name, slug, lang });
+    const category = await Categories.create({ name, slug });
 
     return res.status(200).json({ success: true, data: category });
   } catch (error) {
@@ -740,10 +739,9 @@ const createCategory = async (req, res) => {
 
 const getAllCategories = async (req, res) => {
   try {
-    const { slug, lang } = req.query;
+    const { slug } = req.query;
     if (!slug) return sendErrorResponse(res, 400, "slug is required");
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
-    const categories = await Categories.find({ slug: slug, lang: lang });
+    const categories = await Categories.find({ slug: slug });
     if (!categories)
       return sendErrorResponse(res, 404, "There are no categories");
     return res.status(200).json({ success: true, data: categories });
@@ -756,10 +754,9 @@ const getAllCategories = async (req, res) => {
 
 const updateCategory = async (req, res) => {
   try {
-    const { id, lang } = req.query;
+    const { id } = req.query;
     const { name } = req.body;
     if (!id) return sendErrorResponse(res, 400, "id is required");
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
 
     const updateCategory = await Categories.findByIdAndUpdate(
       id,
