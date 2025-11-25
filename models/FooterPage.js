@@ -24,14 +24,9 @@ const FooterPageSchema = new Schema(
       type: String,
       default: "",
     },
-    language: {
-      type: String,
-      default: "en",
-      trim: true,
-    },
     public_id: {
       type: String,
-    }
+    },
   },
   { timestamps: true }
 );

@@ -351,38 +351,76 @@ const getAllPages = async (req, res) => {
 //     }
 // }
 
+const createHeader = async (req, res) => {
+  try {
+    const {
+      title,
+      url,
+      externalURL = false,
+      isCta = false,
+      disclaimer,
+      order,
+      published = true,
+    } = req.body;
+
+    if (!title) return sendErrorResponse(res, 400, "title is required");
+    if (!url) return sendErrorResponse(res, 400, "url is required");
+
+    if (externalURL === true) {
+      const isValid = /^https?:\/\/.+/.test(url);
+      if (!isValid)
+        return sendErrorResponse(res, 400, "Invalid external URL format");
+    }
+
+    const header = await Header.create({
+      title,
+      url,
+      externalURL,
+      isCta,
+      disclaimer,
+      order,
+      published,
+    });
+
+    return res.status(200).json({ success: true, data: header });
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ success: false, data: "Internal Server Error" });
+  }
+};
+
 const getHeader = async (req, res) => {
   try {
-    const { lang } = req.query;
-
     const agg = [
       {
         $project: {
           _id: 1,
-          title: { $ifNull: [`$title.${lang}`, "$title.en"] },
+          title: 1,
           url: 1,
           isCta: 1,
           externalURL: 1,
-          disclaimer: { $ifNull: [`$disclaimer.${lang}`, "$disclaimer.en"] },
+          disclaimer: 1,
           order: 1,
           published: 1,
         },
       },
-      {
-        $sort: {
-          order: 1,
-        },
-      },
+      { $sort: { order: 1 } },
     ];
 
     const data = await Header.aggregate(agg);
 
-    const links = data.filter((header) => !header.isCta);
-    const ctaButtons = data.filter((header) => header.isCta);
+    const links = data.filter((h) => !h.isCta);
+    const ctaButtons = data.filter((h) => h.isCta);
 
-    return res
-      .status(200)
-      .json({ success: true, data: { links, ctaButton: ctaButtons } });
+    return res.status(200).json({
+      success: true,
+      data: {
+        links,
+        ctaButtons,
+      },
+    });
   } catch (error) {
     console.log(error);
     return res
@@ -393,99 +431,109 @@ const getHeader = async (req, res) => {
 
 const getHeaderById = async (req, res) => {
   try {
-    const { lang, id } = req.query;
-
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
+    const { id } = req.query;
 
     if (!id) return sendErrorResponse(res, 400, "id is required");
 
     const agg = [
-      {
-        $match: {
-          _id: new mongoose.Types.ObjectId(id),
-        },
-      },
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
       {
         $project: {
           _id: 1,
-          title: { $ifNull: [`$title.${lang}`, "$title.en"] },
+          title: 1,
           url: 1,
           isCta: 1,
           externalURL: 1,
-          disclaimer: { $ifNull: [`$disclaimer.${lang}`, "$disclaimer.en"] },
+          disclaimer: 1,
+          order: 1,
           published: 1,
         },
       },
     ];
 
     const data = await Header.aggregate(agg);
+    if (!data[0]) return sendErrorResponse(res, 404, "Header not found");
 
     return res.status(200).json({ success: true, data: data[0] });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, data: "Internal Sever Error" });
+    return res.status(500).json({
+      success: false,
+      data: "Internal Server Error",
+    });
   }
 };
 
 const editHeader = async (req, res) => {
   try {
-    const { lang, id } = req.query;
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
+    const { id } = req.query;
     if (!id) return sendErrorResponse(res, 400, "id is required");
 
-    const { title, url, isCta, externalURL, disclaimer, published } = req.body;
-
-    if (externalURL && url)
-      return sendErrorResponse(
-        res,
-        400,
-        "You can either update url or externalURL"
-      );
+    const { title, url, isCta, externalURL, disclaimer, published, order } =
+      req.body;
 
     let updateData = {};
 
-    if (title) {
-      updateData[`title.${lang}`] = title;
-    }
-    if (url) {
-      updateData.url = url;
-    }
-    if (isCta) {
-      updateData.isCta = isCta;
-    }
-    if (externalURL) {
-      updateData.externalURL = externalURL;
-    }
-    if (disclaimer) {
-      updateData[`disclaimer.${lang}`] = disclaimer;
-    }
-    if (published !== undefined) {
-      updateData.published = published;
+    if (title !== undefined) updateData.title = title;
+    if (url !== undefined) updateData.url = url;
+    if (isCta !== undefined) updateData.isCta = isCta;
+    if (externalURL !== undefined) updateData.externalURL = externalURL;
+    if (disclaimer !== undefined) updateData.disclaimer = disclaimer;
+    if (order !== undefined) updateData.order = order;
+    if (published !== undefined) updateData.published = published;
+
+    if (externalURL !== undefined || url !== undefined) {
+      const finalExternal = externalURL !== undefined ? externalURL : undefined;
+      const finalUrl = url !== undefined ? url : undefined;
+
+      const ext = finalExternal !== undefined ? finalExternal : false;
+      const link = finalUrl !== undefined ? finalUrl : undefined;
+
+      if (link !== undefined) {
+        if (ext === true) {
+          const isValid = /^https?:\/\/.+/.test(link);
+          if (!isValid)
+            return sendErrorResponse(res, 400, "Invalid external URL format");
+        }
+      }
     }
 
-    const headerData = await Header.findByIdAndUpdate(id, updateData, {
+    const footerData = await Header.findByIdAndUpdate(id, updateData, {
       new: true,
     });
-    if (!headerData) return sendErrorResponse(res, 400, "Header not found");
+    if (!footerData) return sendErrorResponse(res, 404, "Header not found");
 
-    return res.status(200).json({ success: true, data: headerData });
+    return res.status(200).json({ success: true, data: footerData });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, data: "Internal Server Error" });
+    return res.status(500).json({
+      success: false,
+      data: "Internal Server Error",
+    });
   }
 };
 
 const getFooter = async (req, res) => {
   try {
-    const { lang } = req.query;
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
+    const agg = [
+      {
+        $lookup: {
+          from: "footersections",
+          localField: "sections",
+          foreignField: "_id",
+          as: "sections",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          url: 1,
+          isCta: 1,
+          sections: 1,
+        },
+      },
+    ];
 
-    const data = await Footer.find({ lang: lang });
-
-    // const links = data.filter(header => !header.isCta);
-    // const ctaButtons = data.filter(header => header.isCta);
+    const data = await Footer.aggregate(agg);
 
     return res.status(200).json({ success: true, data: data });
   } catch (error) {
@@ -497,13 +545,36 @@ const getFooter = async (req, res) => {
 
 const getFooterById = async (req, res) => {
   try {
-    const { lang, id } = req.query;
+    const { id } = req.query;
 
     if (!id) return sendErrorResponse(res, 400, "id is required");
+    const agg = [
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(id),
+        },
+      },
+      {
+        $lookup: {
+          from: "footersections",
+          localField: "sections",
+          foreignField: "_id",
+          as: "sections",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          url: 1,
+          isCta: 1,
+          sections: 1,
+        },
+      },
+    ];
+    const data = await Footer.aggregate(agg);
 
-    const data = await Footer.findById(id);
-
-    return res.status(200).json({ success: true, data: data });
+    return res.status(200).json({ success: true, data: data[0] });
   } catch (error) {
     return res
       .status(500)
@@ -513,11 +584,11 @@ const getFooterById = async (req, res) => {
 
 const getFooterByKey = async (req, res) => {
   try {
-    const { lang, key } = req.query;
+    const { key } = req.query;
 
     if (!key) return sendErrorResponse(res, 400, "key is required");
 
-    const data = await Footer.find({ key: key, lang: lang });
+    const data = await Footer.find({ key: key });
 
     return res.status(200).json({ success: true, data: data });
   } catch (error) {
@@ -529,17 +600,16 @@ const getFooterByKey = async (req, res) => {
 
 const createFooter = async (req, res) => {
   try {
-    const { title, url, sections } = req.body;
-    const { lang } = req.query;
+    const { title, url, sections, key } = req.body;
     if (!title) return sendErrorResponse(res, 400, "title is required");
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
 
     const newFooter = await Footer.create({
       title,
       url,
-      lang,
       sections,
+      key,
     });
+    console.log(newFooter);
     if (!newFooter)
       return res
         .status(400)
@@ -553,8 +623,7 @@ const createFooter = async (req, res) => {
 
 const editFooter = async (req, res) => {
   try {
-    const { lang, id } = req.query;
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
+    const { id } = req.query;
     if (!id) return sendErrorResponse(res, 400, "id is required");
 
     const { title, sections, published } = req.body;
@@ -565,16 +634,20 @@ const editFooter = async (req, res) => {
       updateData.title = title;
     }
     if (sections && Array.isArray(sections)) {
-      updateData.sections = sections.map((elem) => {
-        return {
-          title: elem.title || "",
-          url: elem.url || "",
-          externalURL: !!elem.externalURL,
-          isCta: !!elem.isCta,
-          key: elem.title.toLowerCase() || "",
-          published:
-            typeof elem.published === "boolean" ? elem.published : true,
-        };
+      // updateData.sections = sections.map((elem) => {
+      //   return {
+      //     title: elem.title || "",
+      //     url: elem.url || "",
+      //     externalURL: !!elem.externalURL,
+      //     isCta: !!elem.isCta,
+      //     key: elem.title.toLowerCase() || "",
+      //     published:
+      //       typeof elem.published === "boolean" ? elem.published : true,
+      //   };
+      // });
+      sections.map(async (section) => {
+        let { title, url, key, _id } = section;
+        await editFooterSection(_id, title, url, key);
       });
     }
     if (published !== undefined) {
@@ -596,11 +669,38 @@ const editFooter = async (req, res) => {
   }
 };
 
+const editFooterSection = async (id, title, url, key) => {
+  try {
+    if (!id) return false;
+
+    let updateData = {};
+
+    if (title) {
+      updateData.title = title;
+    }
+    // if (isCta) {
+    //   updateData.isCta = isCta;
+    // }
+    if (url) {
+      updateData.url = url;
+    }
+
+    const footerData = await FooterSection.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+    // console.log("Title", title);
+    // console.log("url", url);
+    // console.log(footerData);
+    if (footerData) return true;
+  } catch (error) {
+    return false;
+  }
+};
+
 const getFooterSectionById = async (req, res) => {
   try {
-    const { id, lang } = req.query;
+    const { id } = req.query;
     if (!id) return sendErrorResponse(res, 400, "id is required");
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
 
     const agg = [
       {
@@ -611,17 +711,13 @@ const getFooterSectionById = async (req, res) => {
       {
         $project: {
           _id: 1,
-          title: { $ifNull: [`$title.${lang}`, "$title.en"] },
+          title: 1,
           url: "$url",
           externalURL: "$externalURL",
           isCta: "$isCta",
-          disclaimer: { $ifNull: [`$disclaimer.${lang}`, "$disclaimer.en"] },
-          socialLinks: "$socialLinks",
+          disclaimer: 1,
           logo: "$logo",
-          companyName: "$companyName",
-          copyrightText: {
-            $ifNull: [`$coprightText.${lang}`, "$coprightText.en"],
-          },
+          copyrightText: 1,
         },
       },
     ];
@@ -640,66 +736,61 @@ const getFooterSectionById = async (req, res) => {
 
 const editFooterSectionById = async (req, res) => {
   try {
-    const { lang, id } = req.query;
-    if (!lang) return sendErrorResponse(res, 400, "lang is required");
+    const { id } = req.query;
     if (!id) return sendErrorResponse(res, 400, "id is required");
 
-    const {
-      title,
-      isCta,
-      externalURL,
-      disclaimer,
-      socialLinks,
-      logo,
-      companyName,
-      copyrightText,
-    } = req.body;
-
-    if (externalURL && url)
-      return sendErrorResponse(
-        res,
-        400,
-        "You can either update url or externalURL"
-      );
+    const { title, isCta, url, key } = req.body;
 
     let updateData = {};
 
     if (title) {
-      updateData[`title.${lang}`] = title;
+      updateData.title = title;
     }
     if (isCta) {
       updateData.isCta = isCta;
     }
-    if (externalURL) {
-      updateData.externalURL = externalURL;
-    }
-    if (socialLinks) {
-      updateData.socialLinks = socialLinks;
-    }
-    if (disclaimer) {
-      updateData[`disclaimer.${lang}`] = disclaimer;
-    }
-    // if (logo) {
-    //     updateData.logo = logo;
-    // }
-    if (companyName) {
-      updateData.companyName = companyName;
-    }
-    if (copyrightText) {
-      updateData[`copyrightText.${lang}`] = copyrightText;
+    if (url) {
+      updateData.url = url;
     }
 
-    const headerData = await FooterSection.findByIdAndUpdate(id, updateData, {
+    const footerData = await FooterSection.findByIdAndUpdate(id, updateData, {
       new: true,
     });
-    console.log(headerData);
-    if (!headerData) return sendErrorResponse(res, 400, "Header not found");
+    if (!footerData) return sendErrorResponse(res, 400, "Header not found");
 
-    return res.status(200).json({ success: true, data: headerData });
+    return res.status(200).json({ success: true, data: footerData });
   } catch (error) {
     return res
       .status(500)
       .json({ success: false, data: "Internal Server Error" });
+  }
+};
+const addFooterToSection = async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) return sendErrorResponse(res, 400, "id is required");
+
+    const { sections } = req.body;
+
+    const footer = await Footer.findById(id);
+    if (!footer) {
+      return res.status(404).json({ success: false, data: "No Section Found" });
+    }
+
+    // Create all sections and wait for them
+    const createdSections = await Promise.all(
+      sections.map((elem) => FooterSection.create({ ...elem, footerId: id }))
+    );
+
+    // Push IDs
+    footer.sections.push(...createdSections.map((s) => s._id));
+
+    await footer.save();
+
+    return res.status(200).json({ success: true, data: footer });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -776,6 +867,7 @@ const editFooterPage = async (req, res) => {
 module.exports = {
   getPages,
   getAllPages,
+  createHeader,
   getHeader,
   getHeaderById,
   editHeader,
@@ -788,4 +880,5 @@ module.exports = {
   getFooterByKey,
   editFooterPage,
   getFooterPage,
+  addFooterToSection,
 };
