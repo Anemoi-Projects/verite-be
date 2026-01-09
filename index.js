@@ -24,3 +24,4 @@ app.use("/api/v1/resources", require("./routes/resources"));
 app.use("/api/v1/team", require("./routes/team"));
 app.use("/api/v1/partner", require("./routes/partner"));
 app.use("/api/v1/enquiry", require("./routes/enquiry"));
+app.use("/api/v1/mail", require("./routes/mail"));
