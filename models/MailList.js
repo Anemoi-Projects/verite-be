@@ -6,6 +6,7 @@ const MailListSchema = new Schema(
     emailID:{
       type:String,
       required : true,
+      lowercase : true,
       trim : true,
       default: null
     },

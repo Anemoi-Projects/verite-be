@@ -8,7 +8,7 @@ connectToMongo();
 const app = express();
 const PORT = 8080;
 const server = http.createServer(app);
-
+app.set("etag", false)
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
