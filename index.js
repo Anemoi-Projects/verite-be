@@ -1,17 +1,19 @@
 const express = require("express");
-const app = express();
-const cors = require("cors");
 const bodyParser = require("body-parser");
 const connectToMongo = require("./db");
+const cors = require("cors");
+const http = require("http");
+
 connectToMongo();
-app.use(cors());
+const app = express();
+const PORT = 8080;
+const server = http.createServer(app);
+
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
-app.use(express.json());
-const port = 8080;
-
-app.listen(port, () => {
-  console.log(`Backend listening at http://localhost:${port}`);
+app.use(cors());
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 app.use("/api/v1/admin", require("./routes/admin"));
@@ -25,3 +27,7 @@ app.use("/api/v1/team", require("./routes/team"));
 app.use("/api/v1/partner", require("./routes/partner"));
 app.use("/api/v1/enquiry", require("./routes/enquiry"));
 app.use("/api/v1/mail", require("./routes/mail"));
+
+server.listen(PORT, () => {
+  console.log("App listening on port " + PORT);
+});
