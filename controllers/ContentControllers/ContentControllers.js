@@ -519,6 +519,12 @@ const getFooter = async (req, res) => {
           from: "footersections",
           localField: "sections",
           foreignField: "_id",
+          pipeline: [
+            {
+              $sort: { order: 1 }, // ✅ SORT HERE
+            },
+          ],
+
           as: "sections",
         },
       },
@@ -657,7 +663,7 @@ const editFooter = async (req, res) => {
     const footerData = await Footer.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true }
+      { new: true },
     );
     if (!footerData) return sendErrorResponse(res, 400, "Header not found");
 
@@ -779,7 +785,7 @@ const addFooterToSection = async (req, res) => {
 
     // Create all sections and wait for them
     const createdSections = await Promise.all(
-      sections.map((elem) => FooterSection.create({ ...elem, footerId: id }))
+      sections.map((elem) => FooterSection.create({ ...elem, footerId: id })),
     );
 
     // Push IDs

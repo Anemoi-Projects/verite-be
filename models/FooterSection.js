@@ -27,6 +27,10 @@ const footerSectionSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "footer",
   },
+  order: {
+    type: Number,
+    default: 1,
+  },
 });
 
 const FooterSection = mongoose.model("footerSection", footerSectionSchema);
