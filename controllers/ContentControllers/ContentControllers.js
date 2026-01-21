@@ -565,6 +565,11 @@ const getFooterById = async (req, res) => {
           from: "footersections",
           localField: "sections",
           foreignField: "_id",
+          pipeline: [
+            {
+              $sort: { order: 1 }, // ✅ SORT HERE
+            },
+          ],
           as: "sections",
         },
       },
